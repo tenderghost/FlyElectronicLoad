@@ -10,7 +10,7 @@ uint8_t MOS_PWM_PIN = 9; // control battery discharge speed
 uint8_t CUR_VOLTAGE_PIN = A1; // PIN for sensoring battery voltage drop to get voltage, using 20mR sampling resistor.
 uint8_t PUSH_BTN_PIN = 8; // PIN for push button
 
-float rSensor = 0.044; // 50mR current sense resistor
+float rSensor = 0.056; // 50mR current sense resistor
 
 // Global dischage pwm speed for battery dischage, 0-255
 int dischagePWMSpeed = 0;
