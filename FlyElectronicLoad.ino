@@ -19,6 +19,9 @@ int dischagePWMSpeed = 0;
 float batVoltage = 0.0;
 float batDischageCurrent = 0.0;
 
+// Record the battery capacity, in 
+float batteryCapacity = 0.0;
+
 // Debounce begin
 // Variables will change:
 int buttonState;             // the current reading from the input pin
@@ -37,12 +40,13 @@ unsigned long sampleDelay = 1000; // in milliseconds
 const float LiChargedVtg = 4.2;
 const float LiCutoffVtg = 3.0;
 
-const unsigned int VOLT_SAMPLE_COUNT = 100; // Voltage or Current sample times per loop
+const unsigned int VOLT_SAMPLE_COUNT = 500; // Voltage or Current sample times per loop
 
 // Electronic load running state constants
-const unsigned int STATE_WATING = 81;    // Waiting for command
-const unsigned int STATE_RUNNING = 82;   // Running state
-unsigned int currentState = STATE_WATING;
+const char STATE_WATING = 'w';    // Waiting for command
+const char STATE_RUNNING = 'r';   // Running state
+const char STATE_DISCHARGE_COMPLETE = 'c'; // Discharge complete
+char currentState = STATE_WATING;
 
 void setup() {
   // put your setup code here, to run once:
@@ -76,7 +80,7 @@ void loop() {
     if (reading != buttonState) {
       buttonState = reading;
 
-      // button state change to HOW means the button was pushed.
+      // button state change to LOW means the button was pushed.
       if (buttonState == LOW) {
         Serial.println("Push button pushed.");
 
@@ -97,35 +101,69 @@ void loop() {
   // ==========================================
   // DISCHAGE OR STOP DISCHAGE CODE START HERE!
   if (currentState == STATE_RUNNING) {
-    if ((millis() - lastSampleTime) > sampleDelay) {
-      lastSampleTime = millis();
-      Serial.println("DO DISCHAGE");
+    constantCurrent(1.0); // TEST CODE FOR CONSTANT CURRENT MODE
+  } else {
+    setPMWSpeed(0);
+  }
 
-      // Read battery voltage and dischage current, values store to batVoltage and batDischageCurrent variables.
-      readVoltAndCurrent();
+  // Print voltage and current
+  if ((millis() - lastSampleTime) > sampleDelay) {
+    lastSampleTime = millis();
 
-      // test code
-      // set dischage current to 0.5A
-      if (batDischageCurrent < 0.5) {
-        Serial.println("Test code for change current under 0.5A");
-        int newPMWSpeed = dischagePWMSpeed + 1;
-        setPMWSpeed(newPMWSpeed);
-      }
+    // Read battery voltage and dischage current, values store to batVoltage and batDischageCurrent variables.
+    readVoltAndCurrent();
 
-      Serial.print("Battery voltage:");
-      Serial.println(batVoltage);
-      Serial.println("===============");
+    Serial.print("Battery voltage:");
+    Serial.println(batVoltage);
+    Serial.print("Dischage current:");
+    Serial.println(batDischageCurrent);
+    
+    // Get battery capacity!
+    if (currentState == STATE_RUNNING) {
+      batteryCapacity += (batDischageCurrent * sampleDelay) / 3600.0;
+      Serial.print("Battery capacity:");
+      Serial.println(batteryCapacity);
     }
 
+    Serial.println("===============");
 
-  } else {
-    if ((millis() - lastSampleTime) > sampleDelay) {
-      lastSampleTime = millis();
-
-      Serial.println("GO WAIT");
-      setPMWSpeed(0);
+    // Check if the battery was dischage complete
+    if (batVoltage < LiCutoffVtg) {
+      stopDischarge();
     }
   }
+}
+
+// change dischage current to desire ampire
+// the desire ampire should less or bigger than 0.1
+void constantCurrent(float desireAmpire) {
+  readVoltAndCurrent();
+
+  if (batDischageCurrent < desireAmpire - 0.05) {
+    int newPMWSpeed = dischagePWMSpeed + 1;
+    if (newPMWSpeed > 255) {
+      newPMWSpeed = 255; // should NOT bigger than 255
+    }
+    setPMWSpeed(newPMWSpeed);
+  } else if (batDischageCurrent > desireAmpire + 0.05) {
+    int newPMWSpeed = dischagePWMSpeed - 1;
+    if (newPMWSpeed < 0) {
+      newPMWSpeed = 0; // should NOT less than zero
+    }
+    setPMWSpeed(newPMWSpeed);
+  } else {
+    /*
+    Serial.print("discharge current is: ");
+    Serial.print(batDischageCurrent);
+    Serial.println(", and is OK!");
+    */
+  }
+}
+
+void stopDischarge() {
+  setPMWSpeed(0);
+  currentState = STATE_DISCHARGE_COMPLETE;
+  Serial.println("Discharge complete!!!");
 }
 
 
@@ -141,7 +179,7 @@ void readVoltAndCurrent() {
       totalVoltage += analogRead(BAT_VOLTAGE_PIN);
     }
     float fltVoltPinValue = totalVoltage / VOLT_SAMPLE_COUNT;
-    float batVoltage = 2.0 * 5.0 * (fltVoltPinValue / 1023.0f);
+    batVoltage = 2.0 * 5.0 * (fltVoltPinValue / 1023.0f);
   
 //    Serial.print("Battery voltage:");
 //    Serial.println(batVoltage);
