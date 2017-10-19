@@ -2,6 +2,9 @@
  * FlyElectronicLoad by tenderghost@gmail.com
  * Using arduino pro mini
  * Using https://www.arduino.cc/en/Tutorial/Debounce for pushbutton to ignore noise
+ * TODO 1 add auto charge function!
+ * TODO 2 add internal resistence test funciton!
+ * TODO 3 add discharge curve report furnction!
  */
 
 // Pin definations
